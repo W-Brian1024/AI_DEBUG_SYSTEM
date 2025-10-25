@@ -1,6 +1,17 @@
 #!/bin/bash
 set -e
 
+# Check for MinIO parameters
+MINIO_ACCESS_KEY=${1:-"minioadmin"}
+MINIO_SECRET_KEY=${2:-"minioadmin"}
+
+echo "[INFO] MinIO Access Key: ${MINIO_ACCESS_KEY:0:8}..."
+echo "[INFO] MinIO Secret Key: ${MINIO_SECRET_KEY:0:8}..."
+
+# Export MinIO credentials for ALL subprocesses
+export MINIO_ACCESS_KEY
+export MINIO_SECRET_KEY
+
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/fast_venv"
@@ -168,6 +179,9 @@ sleep 2
 
 # Start Celery Worker
 echo "[INFO] Starting Celery Worker..."
+# Re-export MinIO credentials to ensure they are available after venv activation
+export MINIO_ACCESS_KEY
+export MINIO_SECRET_KEY
 CELERY_PID=""
 POOL_TYPES=("solo" "prefork" "gevent" "eventlet")
 
@@ -211,7 +225,11 @@ sleep 3
 
 # Start FastAPI service
 echo "[INFO] Starting FastAPI service (Uvicorn)..."
-python -m uvicorn fastapi_app:app --reload --host 0.0.0.0 --port $PORT > $FASTAPI_LOG 2>&1 &
+# Export MinIO credentials for subprocesses
+export MINIO_ACCESS_KEY
+export MINIO_SECRET_KEY
+
+python fastapi_app.py > $FASTAPI_LOG 2>&1 &
 FASTAPI_PID=$!
 FASTAPI_START_RESULT=$?
 

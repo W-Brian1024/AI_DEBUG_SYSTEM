@@ -24,17 +24,27 @@ logger = logging.getLogger("celery_app")
 # Redis configuration
 redis_client = redis.Redis(host='localhost', port=6379, db=2)
 
-# MinIO configuration
+# MinIO configuration - use environment variables
+minio_endpoint = "localhost:9000"  # 固定endpoint
+minio_access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+minio_secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+
+logger.info("MinIO configuration - Endpoint: %s, Access Key: %s", minio_endpoint, minio_access_key[:8] + "...")
+
 minio_client = Minio(
-    endpoint="localhost:9000",
-    access_key=os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
-    secret_key=os.getenv("MINIO_SECRET_KEY", "minioadmin"),
+    endpoint=minio_endpoint,
+    access_key=minio_access_key,
+    secret_key=minio_secret_key,
     secure=False
 )
 BUCKET = "ble1"
 
 #ZhiPu API configuration
-deepseek_client = ZhipuAiClient(api_key="your_api_key")
+ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY")
+if not ZHIPU_API_KEY:
+    logger.error("ZHIPU_API_KEY environment variable not set")
+    raise ValueError("ZHIPU_API_KEY environment variable is required")
+deepseek_client = ZhipuAiClient(api_key=ZHIPU_API_KEY)
 
 # Celery configuration
 celery = Celery(

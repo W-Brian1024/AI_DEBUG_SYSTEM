@@ -11,9 +11,12 @@ fi
 PHYSICAL_SERIAL="$1"                  # ESP32 serial port passed from parameter
 BAUD_RATE="${2:-115200}"              # Optional parameter, default 115200
 
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 VIRTUAL_DIR="$HOME/vserial"           # Virtual serial port directory
 VIRTUAL_SERIAL="$VIRTUAL_DIR/ttyVLOG"
-PYTHON_SCRIPT="./catch_esp_log.py"
+PYTHON_SCRIPT="$SCRIPT_DIR/catch_esp_log.py"
 
 # Create virtual serial port directory
 mkdir -p "$VIRTUAL_DIR"

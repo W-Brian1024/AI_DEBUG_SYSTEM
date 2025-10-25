@@ -20,7 +20,8 @@ fi
 PORT=$1
 MINIO_ACCESS_KEY=${2:-"minioadmin"}
 MINIO_SECRET_KEY=${3:-"minioadmin"}
-CATCH_SCRIPT="./catch_logs_auto.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CATCH_SCRIPT="$SCRIPT_DIR/esp32_catch/catch_logs_auto.sh"
 
 # Export MinIO credentials for subprocesses
 export MINIO_ACCESS_KEY
@@ -38,13 +39,7 @@ else
     sudo docker start $CONTAINER_NAME
 fi
 
-if [ $# -lt 1 ]; then
-    echo "Usage: $0 <ttyUSBx>"
-    exit 1
-fi
-
-PORT=$1
-CATCH_SCRIPT="./catch_logs_auto.sh"
+# PORT and CATCH_SCRIPT are already set above, no need to duplicate
 
 # 1. Check if catch_logs_auto.sh is running
 PID=$(pgrep -f "catch_logs_auto.sh $PORT" || true)
