@@ -432,8 +432,15 @@ INDEX_HTML = """
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>ESP32 Log Analysis System</h1>
-            <p>AI-powered log analysis and problem diagnosis</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>ESP32 Log Analysis System</h1>
+                    <p>AI-powered log analysis and problem diagnosis</p>
+                </div>
+                <button id="langBtn" onclick="switchLanguage()" class="btn btn-secondary" style="padding: 8px 16px;">
+                    EN
+                </button>
+            </div>
         </div>
         
         <!-- Content Area -->
@@ -468,7 +475,7 @@ Start Analysis
                     <div class="progress-bar">
                         <div id="progress" class="progress-fill" style="width: 0%"></div>
                     </div>
-                    <div class="progress-text" id="progressText">Waiting for upload...</div>
+                    <div class="progress-text" id="progressText">等待上传...</div>
                 </div>
                 
                 <div class="card">
@@ -476,7 +483,7 @@ Start Analysis
                         Task Status
                     </div>
                     <div id="status" class="status-card">
-                        Waiting for task to start...
+                        等待任务开始...
                     </div>
                 </div>
             </div>
@@ -539,6 +546,111 @@ Start Analysis
     let llm_contexts = {};
     let latest_event_id = null;
     
+    // Language translations
+    const translations = {
+        'zh': {
+            title: 'ESP32 日志分析系统',
+            subtitle: '基于AI的日志分析和问题诊断',
+            upload_file: '日志文件上传',
+            select_file: '选择日志文件',
+            start_analysis: '开始分析',
+            task_status: '任务状态',
+            analysis_results: '分析结果',
+            ask_questions: '提问',
+            load_history: '加载历史',
+            current_file: '当前文件',
+            upload_placeholder: '上传日志文件开始分析',
+            no_questions: '还没有问题，在上面提问吧！',
+            ask_button: '提问',
+            waiting_upload: '等待上传...',
+            preparing_upload: '准备上传...',
+            analysis_complete: '分析完成！',
+            task_completed: '✅ 分析任务完成'
+        },
+        'en': {
+            title: 'ESP32 Log Analysis System',
+            subtitle: 'AI-powered log analysis and problem diagnosis',
+            upload_file: 'Log File Upload',
+            select_file: 'Select Log File',
+            start_analysis: 'Start Analysis',
+            task_status: 'Task Status',
+            analysis_results: 'Analysis Results',
+            ask_questions: 'Ask Questions',
+            load_history: 'Load History',
+            current_file: 'Current file',
+            upload_placeholder: 'Upload log files to begin analysis',
+            no_questions: 'No questions yet. Ask something above!',
+            ask_button: 'Ask',
+            waiting_upload: 'Waiting for upload...',
+            preparing_upload: 'Preparing to upload...',
+            analysis_complete: 'Analysis complete!',
+            task_completed: '✅ Analysis task completed'
+        }
+    };
+
+    let currentLang = localStorage.getItem('language') || 'zh';
+
+    function switchLanguage() {
+        currentLang = currentLang === 'zh' ? 'en' : 'zh';
+        localStorage.setItem('language', currentLang);
+        updateLanguage();
+    }
+
+    function updateLanguage() {
+        const t = translations[currentLang];
+
+        // Update header
+        document.querySelector('.header h1').textContent = t.title;
+        document.querySelector('.header p').textContent = t.subtitle;
+
+        // Update card titles
+        const uploadCard = document.querySelector('.left-panel .card-title');
+        if (uploadCard) uploadCard.firstChild.textContent = t.upload_file;
+
+        const statusCard = document.querySelector('.left-panel .card:nth-child(3) .card-title');
+        if (statusCard) statusCard.firstChild.textContent = t.task_status;
+
+        const analysisCard = document.querySelector('.right-panel .card:first-child .card-title');
+        if (analysisCard) analysisCard.firstChild.textContent = t.analysis_results;
+
+        const qaCard = document.querySelector('.right-panel .card:last-child .card-title');
+        if (qaCard) qaCard.firstChild.textContent = t.ask_questions;
+
+        // Update buttons and labels
+        const fileLabel = document.getElementById('fileInput')?.nextElementSibling;
+        if (fileLabel && fileLabel.tagName === 'LABEL') {
+            fileLabel.textContent = t.select_file;
+        }
+
+        const analysisBtn = document.querySelector('button[onclick="uploadFile()"]');
+        if (analysisBtn) analysisBtn.textContent = t.start_analysis;
+
+        const historyBtn = document.querySelector('button[onclick="loadConversationHistory()"]');
+        if (historyBtn) historyBtn.textContent = t.load_history;
+
+        const askBtn = document.querySelector('button[onclick="askLLM()"]');
+        if (askBtn) askBtn.textContent = t.ask_button;
+
+        // Update placeholder text
+        const questionInput = document.getElementById('question');
+        if (questionInput) questionInput.placeholder = currentLang === 'zh' ? '您对此日志有什么疑问？' : 'What questions do you have about this log?';
+
+        // Update static text
+        const uploadPlaceholder = document.querySelector('.analysis-result div[style*="text-align: center"]');
+        if (uploadPlaceholder && uploadPlaceholder.textContent.includes('Upload') || uploadPlaceholder.textContent.includes('上传')) {
+            uploadPlaceholder.querySelector('p').textContent = t.upload_placeholder;
+        }
+
+        const noQuestionsText = document.querySelector('#llmHistory div[style*="text-align: center"]');
+        if (noQuestionsText && (noQuestionsText.textContent.includes('No questions') || noQuestionsText.textContent.includes('还没有问题'))) {
+            noQuestionsText.querySelector('p').textContent = t.no_questions;
+        }
+
+        // Update language button
+        const langBtn = document.getElementById('langBtn');
+        if (langBtn) langBtn.textContent = currentLang === 'zh' ? 'EN' : '中文';
+    }
+
     // Sync backend context data
     function syncContextsFromBackend() {
         fetch('/debug/contexts')
@@ -556,6 +668,7 @@ Start Analysis
     // Sync data once on page load
     window.addEventListener('load', function() {
         syncContextsFromBackend();
+        updateLanguage();
     });
 
     // File selection display filename
@@ -563,8 +676,9 @@ Start Analysis
         const file = e.target.files[0];
         if (file) {
             currentFileName = file.name;
-            document.getElementById('fileName').textContent = `Selected: ${currentFileName}`;
-            document.getElementById('progressText').textContent = 'Preparing to upload';
+            const t = translations[currentLang];
+            document.getElementById('fileName').textContent = (currentLang === 'zh' ? '已选择: ' : 'Selected: ') + currentFileName;
+            document.getElementById('progressText').textContent = t.preparing_upload;
             document.getElementById('progress').style.width = '0%';
         }
     });
@@ -622,9 +736,16 @@ Start Analysis
             updateProgress(30, "Task queued...");
             
             // Display current file info
+            const t = translations[currentLang];
             document.getElementById('currentFileInfo').style.display = 'block';
             document.getElementById('currentFileName').textContent = currentFileName;
             document.getElementById('currentFileBadge').style.display = 'inline-block';
+
+            // Update current file text
+            const currentFileDiv = document.getElementById('currentFileInfo');
+            if (currentFileDiv) {
+                currentFileDiv.innerHTML = `${t.current_file}: <span id="currentFileName">${currentFileName}</span>`;
+            }
             
             setTimeout(() => pollStatus(eventId), 1000);
         })
@@ -654,11 +775,12 @@ Start Analysis
         `;
         
         // Reset status area
-        document.getElementById("status").innerHTML = "Waiting for task to start...";
+        const t = translations[currentLang];
+        document.getElementById("status").innerHTML = t.waiting_upload;
         document.getElementById("status").style.borderLeftColor = "var(--primary)";
-        
+
         // Reset progress
-        updateProgress(0, "Preparing to upload...");
+        updateProgress(0, t.preparing_upload);
     }
 
     function pollStatus(currentEventId) {
@@ -684,8 +806,9 @@ Start Analysis
             updateStatus(statusText);
             
             if (data.state === "SUCCESS") {
-                updateProgress(100, "Analysis complete!");
-                updateStatus("✅ Analysis task completed");
+                const t = translations[currentLang];
+                updateProgress(100, t.analysis_complete);
+                updateStatus(t.task_completed);
                 
                 let resultData = data.result || data.llm_output || data;
                 console.log('Original result data:', resultData);
