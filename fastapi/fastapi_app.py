@@ -108,44 +108,43 @@ INDEX_HTML = """
         }
         
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            min-height: 100vh;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f8fafc;
+            margin: 0;
             padding: 20px;
+            color: #334155;
         }
         
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: var(--card-shadow);
-            overflow: hidden;
         }
         
         .header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: white;
-            padding: 30px;
+            background: white;
+            padding: 20px;
             text-align: center;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
-        
+
         .header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1e293b;
         }
-        
+
         .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
+            font-size: 14px;
+            color: #64748b;
         }
         
         .content {
-            padding: 30px;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            gap: 20px;
         }
         
         @media (max-width: 768px) {
@@ -156,32 +155,29 @@ INDEX_HTML = """
         
         .card {
             background: white;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+            padding: 20px;
             border: 1px solid #e2e8f0;
         }
         
-    .card-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: var(--dark);
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-    }
-        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
         .card-title i {
-            color: var(--primary);
+            color: #3b82f6;
         }
         
         .upload-section {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
             border: 2px dashed #cbd5e1;
-            border-radius: 12px;
-            padding: 30px;
+            border-radius: 8px;
+            padding: 20px;
             text-align: center;
             margin-bottom: 20px;
         }
@@ -196,18 +192,16 @@ INDEX_HTML = """
         
         .file-label {
             display: inline-block;
-            padding: 15px 30px;
-            background: var(--primary);
+            padding: 12px 24px;
+            background: #3b82f6;
             color: white;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s ease;
             font-weight: 500;
         }
-        
+
         .file-label:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
+            background: #2563eb;
         }
         
         .metadata-input {
@@ -438,8 +432,8 @@ INDEX_HTML = """
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1><i class="fas fa-microchip"></i> ESP32 Intelligent Log Analysis System</h1>
-            <p>AI-powered intelligent log analysis and problem diagnosis based on DeepSeek AI</p>
+            <h1>ESP32 Log Analysis System</h1>
+            <p>AI-powered log analysis and problem diagnosis</p>
         </div>
         
         <!-- Content Area -->
@@ -448,13 +442,13 @@ INDEX_HTML = """
             <div class="left-panel">
                 <div class="card">
                     <div class="card-title">
-                        <i class="fas fa-upload"></i> Log File Upload
+                        Log File Upload
                     </div>
                     
                     <div class="upload-section">
                         <input type="file" id="fileInput" class="file-input" accept=".log,.txt,.bin">
                         <label for="fileInput" class="file-label">
-                            <i class="fas fa-cloud-upload-alt"></i> Select Log File
+                            Select Log File
                         </label>
                         <p id="fileName" style="margin-top: 15px; color: var(--secondary); font-size: 14px;"></p>
                     </div>
@@ -466,7 +460,7 @@ INDEX_HTML = """
                     ></textarea>
                     
                     <button onclick="uploadFile()" class="btn btn-primary" style="width: 100%;">
-                        <i class="fas fa-rocket"></i> Start Analysis
+Start Analysis
                     </button>
                 </div>
                 
@@ -479,7 +473,7 @@ INDEX_HTML = """
                 
                 <div class="card">
                     <div class="card-title">
-                        <i class="fas fa-tasks"></i> Task Status
+                        Task Status
                     </div>
                     <div id="status" class="status-card">
                         Waiting for task to start...
@@ -491,26 +485,25 @@ INDEX_HTML = """
             <div class="right-panel">
                 <div class="card">
                     <div class="card-title">
-                        <i class="fas fa-brain"></i> AI Intelligent Analysis
+                        Analysis Results
                         <span id="currentFileBadge" class="success-badge" style="display: none;">Current File</span>
                         <button onclick="loadConversationHistory()" class="btn btn-secondary" style="width: auto; padding: 8px 16px; font-size: 12px;">
-                            <i class="fas fa-history"></i> Load Conversation History
+                            Load History
                         </button>
                     </div>
                       <div id="currentFileInfo" class="current-file" style="display: none;">
-                        <i class="fas fa-file-alt"></i> Current analysis file: <span id="currentFileName"></span>
+                        Current file: <span id="currentFileName"></span>
                     </div>
                     <div id="analysisResult" class="analysis-result">
-                        <div style="text-align: center; color: var(--gray); padding: 40px;">
-                            <i class="fas fa-robot" style="font-size: 3rem; margin-bottom: 15px;"></i>
-                            <p>After uploading log files, AI will analyze problems for you</p>
+                        <div style="text-align: center; color: #6b7280; padding: 40px;">
+                            <p>Upload log files to begin analysis</p>
                         </div>
                     </div>
                 </div>
                 
                 <div class="card">
                     <div class="card-title">
-                        <i class="fas fa-comments"></i> Intelligent Q&A
+                        Ask Questions
                     </div>
                     <div class="chat-container">
                         <input 
@@ -521,14 +514,13 @@ INDEX_HTML = """
                             onkeypress="if(event.key === 'Enter') askLLM()"
                         >
                         <button onclick="askLLM()" class="btn btn-primary">
-                            <i class="fas fa-paper-plane"></i>
+                            Ask
                         </button>
                     </div>
                     
                     <div id="llmHistory" class="history-container">
-                        <div style="text-align: center; color: var(--gray); padding: 20px;">
-                            <i class="fas fa-comment-dots" style="font-size: 2rem;"></i>
-                            <p>Start the conversation!</p>
+                        <div style="text-align: center; color: #6b7280; padding: 20px;">
+                            <p>No questions yet. Ask something above!</p>
                         </div>
                     </div>
                 </div>
@@ -781,73 +773,7 @@ INDEX_HTML = """
             `;
         }
         
-        // Render chunks analysis results
-        if (result.chunks && result.chunks.length > 0) {
-            html += `
-                <h3 style="color: var(--primary); margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
-                    <i class="fas fa-file-alt"></i> Detailed Analysis Results
-                </h3>
-            `;
-            
-            result.chunks.forEach((chunk, index) => {
-                const analysis = chunk.analysis || {};
-                const chunkId = chunk.chunk_id || `chunk_${index + 1}`;
-                
-                html += `
-                    <div class="chunk-card">
-                        <h4 style="color: var(--secondary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-cube"></i> ${chunkId}
-                        </h4>
-                        
-                        ${analysis.summary ? `
-                            <div style="margin-bottom: 15px;">
-                                <strong style="color: var(--dark);">Summary:</strong>
-                                <p style="margin-top: 5px; color: var(--dark);">${analysis.summary}</p>
-                            </div>
-                        ` : ''}
-                        
-                        ${analysis.evidence ? `
-                            <div style="margin-bottom: 15px;">
-                                <strong style="color: var(--dark);">Evidence:</strong>
-                                ${Array.isArray(analysis.evidence) ? 
-                                    analysis.evidence.map(e => `
-                                        <div class="highlight highlight-evidence">
-                                            <i class="fas fa-clipboard-check" style="margin-right: 8px;"></i>${e}
-                                        </div>
-                                    `).join('') : 
-                                    `<div class="highlight highlight-evidence">
-                                        <i class="fas fa-clipboard-check" style="margin-right: 8px;"></i>${analysis.evidence}
-                                    </div>`
-                                }
-                            </div>
-                        ` : ''}
-                        
-                        ${analysis.actions ? `
-                            <div style="margin-bottom: 15px;">
-                                <strong style="color: var(--dark);">Recommended Actions:</strong>
-                                ${Array.isArray(analysis.actions) ? 
-                                    analysis.actions.map((a, i) => `
-                                        <div class="highlight highlight-action">
-                                            <i class="fas fa-wrench" style="margin-right: 8px;"></i>${i + 1}. ${a}
-                                        </div>
-                                    `).join('') : 
-                                    `<div class="highlight highlight-action">
-                                        <i class="fas fa-wrench" style="margin-right: 8px;"></i>${analysis.actions}
-                                    </div>`
-                                }
-                            </div>
-                        ` : ''}
-                        
-                        ${analysis.confidence ? `
-                            <div style="background: #f8fafc; padding: 8px 12px; border-radius: 6px; display: inline-block;">
-                                <strong>Confidence:</strong> ${(analysis.confidence * 100).toFixed(1)}%
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            });
-        }
-        
+          
         analysisDiv.innerHTML = html;
     }
 
