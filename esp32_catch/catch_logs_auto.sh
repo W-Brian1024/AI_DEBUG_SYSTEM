@@ -1,12 +1,58 @@
 #!/bin/bash
 # One-click ESP32 log capture (virtual serial port + Python)
 
+# === Dependency Check ===
+check_dependencies() {
+    local missing_deps=()
+
+    # Check for socat
+    if ! command -v socat &> /dev/null; then
+        missing_deps+=("socat")
+    fi
+
+    # Check for python3
+    if ! command -v python3 &> /dev/null; then
+        missing_deps+=("python3")
+    fi
+
+    # Check for serial module in python3
+    if ! python3 -c "import serial" &> /dev/null 2>&1; then
+        missing_deps+=("pyserial")
+    fi
+
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        echo "❌ Missing dependencies: ${missing_deps[*]}"
+        echo ""
+        echo "📦 Install commands:"
+        for dep in "${missing_deps[@]}"; do
+            case $dep in
+                "socat")
+                    echo "  sudo apt install socat"
+                    ;;
+                "python3")
+                    echo "  sudo apt install python3"
+                    ;;
+                "pyserial")
+                    echo "  pip3 install pyserial"
+                    echo "  or: sudo apt install python3-serial"
+                    ;;
+            esac
+        done
+        echo ""
+        echo "After installing, please run this script again."
+        exit 1
+    fi
+}
+
 # === Parameter Check ===
 if [ -z "$1" ]; then
     echo "Usage: $0 <serial_port> [baud_rate]"
     echo "Example: $0 /dev/ttyUSB0 115200"
     exit 1
 fi
+
+# Check dependencies before proceeding
+check_dependencies
 
 PHYSICAL_SERIAL="$1"                  # ESP32 serial port passed from parameter
 BAUD_RATE="${2:-115200}"              # Optional parameter, default 115200
