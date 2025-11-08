@@ -1,6 +1,7 @@
 
-# fastapi_app.py (fixed version)
+# fastapi_app.py (with centralized configuration)
 import os
+import sys
 import uuid
 import logging
 import json
@@ -17,49 +18,88 @@ from fastapi.middleware.cors import CORSMiddleware
 from celery.result import AsyncResult
 from minio import Minio
 from openai import OpenAI
+import redis
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import configuration management
+from check_config.config_manager import get_config, ConfigManager
 
 # Import tasks and celery app from celery_app
 from celery_app import preprocess_file, celery  # type: ignore
 
 # ---------- Configuration ----------
-logging.basicConfig(level=logging.INFO)
+# Initialize configuration
+config_manager = get_config()
+config = config_manager.get_all_config()
+
+# Setup logging
+logging_config = config_manager.get_logging_config()
+logging.basicConfig(
+    level=getattr(logging, logging_config.get('level', 'INFO')),
+    format=logging_config.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+)
 logger = logging.getLogger("fastapi_app")
 
-app = FastAPI(title="ESP32 Log Upload & LLM Analysis")
+# Validate configuration on startup
+if not config_manager.validate_config():
+    logger.error("Configuration validation failed. Please check your environment variables.")
+    sys.exit(1)
 
+# Initialize FastAPI app
+server_config = config_manager.get_server_config()
+app = FastAPI(
+    title="ESP32 Log Upload & LLM Analysis",
+    debug=server_config.get('debug', False)
+)
+
+# Add CORS middleware
+cors_origins = server_config.get('cors_origins', ["*"])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
-# MinIO configuration - use environment variables
-minio_endpoint = "localhost:9000"  # 固定endpoint
-minio_access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-minio_secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-
-logger.info("MinIO configuration - Endpoint: %s, Access Key: %s", minio_endpoint, minio_access_key[:8] + "...")
-
+# MinIO configuration
+minio_config = config_manager.get_minio_config()
 minio_client = Minio(
-    endpoint=minio_endpoint,
-    access_key=minio_access_key,
-    secret_key=minio_secret_key,
-    secure=False
+    endpoint=minio_config['endpoint'],
+    access_key=minio_config['access_key'],
+    secret_key=minio_config['secret_key'],
+    secure=minio_config['secure']
 )
-BUCKET = "ble1"
+BUCKET = minio_config['bucket']
+
+logger.info("MinIO configuration - Endpoint: %s, Bucket: %s", minio_config['endpoint'], BUCKET)
+logger.info("MinIO Credentials - Access Key: %s, Secret Key: %s",
+           minio_config['access_key'],
+           minio_config['secret_key'])
 
 # Redis configuration
-import redis
-redis_client = redis.Redis(host='localhost', port=6379, db=2)
+redis_config = config_manager.get_redis_config()
+redis_client = redis.Redis(
+    host=redis_config['host'],
+    port=redis_config['port'],
+    db=redis_config['db_cache'],
+    password=redis_config.get('password'),
+    max_connections=redis_config['max_connections']
+)
 
-# ZhiPu API configuration
-from zai import ZhipuAiClient
-ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY")
-if not ZHIPU_API_KEY:
-    logger.error("ZHIPU_API_KEY environment variable not set")
-    raise ValueError("ZHIPU_API_KEY environment variable is required")
-deepseek_client = ZhipuAiClient(api_key=ZHIPU_API_KEY)
+# AI API configuration
+ai_config = config_manager.get_ai_config()
+if ai_config['provider'] == 'zhipu':
+    from zai import ZhipuAiClient
+    if not ai_config.get('api_key'):
+        logger.error("ZHIPU_API_KEY environment variable not set")
+        raise ValueError("ZHIPU_API_KEY environment variable is required")
+    deepseek_client = ZhipuAiClient(api_key=ai_config['api_key'])
+    logger.info("Using ZhiPu AI with model: %s", ai_config['model'])
+else:
+    logger.error("Unsupported AI provider: %s", ai_config['provider'])
+    raise ValueError(f"Unsupported AI provider: {ai_config['provider']}")
 
 # Global context - use dictionary to store multiple contexts, with event_id as key
 llm_contexts: Dict[str, Dict[str, Any]] = {}

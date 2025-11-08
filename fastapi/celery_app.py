@@ -1,5 +1,6 @@
-# celery_app.py (fixed version)
+# celery_app.py (with centralized configuration)
 import os
+import sys
 import logging
 import json
 import time
@@ -13,38 +14,66 @@ from minio import Minio
 from openai import OpenAI
 import redis
 
-import zai
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import configuration management
+from check_config.config_manager import get_config
+
+import zai
 from zai import ZhipuAiClient
 
 # ---------- Configuration ----------
-logging.basicConfig(level=logging.INFO)
+# Initialize configuration
+config_manager = get_config()
+
+# Setup logging
+logging_config = config_manager.get_logging_config()
+logging.basicConfig(
+    level=getattr(logging, logging_config.get('level', 'INFO')),
+    format=logging_config.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+)
 logger = logging.getLogger("celery_app")
 
 # Redis configuration
-redis_client = redis.Redis(host='localhost', port=6379, db=2)
-
-# MinIO configuration - use environment variables
-minio_endpoint = "localhost:9000"  # 固定endpoint
-minio_access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-minio_secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-
-logger.info("MinIO configuration - Endpoint: %s, Access Key: %s", minio_endpoint, minio_access_key[:8] + "...")
-
-minio_client = Minio(
-    endpoint=minio_endpoint,
-    access_key=minio_access_key,
-    secret_key=minio_secret_key,
-    secure=False
+redis_config = config_manager.get_redis_config()
+redis_client = redis.Redis(
+    host=redis_config['host'],
+    port=redis_config['port'],
+    db=redis_config['db_cache'],
+    password=redis_config.get('password'),
+    max_connections=redis_config['max_connections']
 )
-BUCKET = "ble1"
 
-#ZhiPu API configuration
-ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY")
-if not ZHIPU_API_KEY:
-    logger.error("ZHIPU_API_KEY environment variable not set")
-    raise ValueError("ZHIPU_API_KEY environment variable is required")
-deepseek_client = ZhipuAiClient(api_key=ZHIPU_API_KEY)
+# MinIO configuration
+minio_config = config_manager.get_minio_config()
+minio_client = Minio(
+    endpoint=minio_config['endpoint'],
+    access_key=minio_config['access_key'],
+    secret_key=minio_config['secret_key'],
+    secure=minio_config['secure']
+)
+BUCKET = minio_config['bucket']
+
+logger.info("MinIO configuration - Endpoint: %s, Bucket: %s", minio_config['endpoint'], BUCKET)
+logger.info("MinIO Credentials - Access Key: %s, Secret Key: %s",
+           minio_config['access_key'],
+           minio_config['secret_key'])
+
+# ZhiPu API configuration - delay initialization until needed
+def get_ai_client():
+    """Get AI client with lazy initialization"""
+    global _deepseek_client
+    if _deepseek_client is None:
+        ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY")
+        if not ZHIPU_API_KEY:
+            logger.error("ZHIPU_API_KEY environment variable not set")
+            raise ValueError("ZHIPU_API_KEY environment variable is required")
+        _deepseek_client = ZhipuAiClient(api_key=ZHIPU_API_KEY)
+        logger.info("AI client initialized")
+    return _deepseek_client
+
+_deepseek_client = None
 
 # Celery configuration
 celery = Celery(
@@ -76,6 +105,7 @@ def call_deepseek_sync(prompt: str) -> str:
             return json.loads(cached_result)
         
         # Call API
+        deepseek_client = get_ai_client()
         response = deepseek_client.chat.completions.create(
             model="glm-4.5",
             messages=[{"role": "user", "content": prompt}],

@@ -1,27 +1,58 @@
 #!/bin/bash
 set -e
 
-# Check for MinIO parameters
-MINIO_ACCESS_KEY=${1:-"minioadmin"}
-MINIO_SECRET_KEY=${2:-"minioadmin"}
+# Load credentials from .env file
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/../.env"
+
+if [ -f "$ENV_FILE" ]; then
+    echo "[INFO] Loading credentials from $ENV_FILE"
+    # Export all variables from .env file (skip comments and empty lines)
+    set -a
+    source "$ENV_FILE"
+    set +a
+    echo "[INFO] Loaded $(grep -c '^[^#]' "$ENV_FILE") variables from .env"
+else
+    echo "[WARNING] .env file not found at $ENV_FILE"
+    echo "[INFO] Using default credentials (minioadmin/minioadmin)"
+    export MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-minioadmin}"
+    export MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-minioadmin}"
+fi
 
 echo "[INFO] MinIO Access Key: ${MINIO_ACCESS_KEY:0:8}..."
 echo "[INFO] MinIO Secret Key: ${MINIO_SECRET_KEY:0:8}..."
 
-# Export MinIO credentials for ALL subprocesses
+# Ensure credentials are exported for ALL subprocesses
 export MINIO_ACCESS_KEY
 export MINIO_SECRET_KEY
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/fast_venv"
+
+# Try to find virtual environment in multiple locations
+VENV_DIRS=("$SCRIPT_DIR/fast_venv" "$SCRIPT_DIR/../ai_env" "$HOME/ai_env")
+
+VENV_DIR=""
+for dir in "${VENV_DIRS[@]}"; do
+    if [ -d "$dir" ]; then
+        VENV_DIR="$dir"
+        break
+    fi
+done
 
 # Activate virtual environment
-if [ -d "$VENV_DIR" ]; then
+if [ -n "$VENV_DIR" ]; then
     echo "[INFO] Activating virtual environment: $VENV_DIR"
     source "$VENV_DIR/bin/activate"
 else
-    echo "[ERROR] Virtual environment does not exist: $VENV_DIR"
+    echo "[ERROR] No virtual environment found in:"
+    for dir in "${VENV_DIRS[@]}"; do
+        echo "  - $dir"
+    done
+    echo "[INFO] Please create a virtual environment first:"
+    echo "  cd $SCRIPT_DIR/.. && python3 -m venv ai_env"
+    echo "  source ai_env/bin/activate"
+    echo "  pip install -r requirements.txt"
     exit 1
 fi
 

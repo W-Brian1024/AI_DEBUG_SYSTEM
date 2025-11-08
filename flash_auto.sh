@@ -3,11 +3,30 @@ set -e
 
 CONTAINER_NAME="minio"
 
+# Load credentials from .env file
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.env"
+
+if [ -f "$ENV_FILE" ]; then
+    echo "[INFO] Loading credentials from $ENV_FILE"
+    # Export all variables from .env file
+    set -a
+    source "$ENV_FILE"
+    set +a
+    echo "[INFO] Loaded $(grep -c '^[^#]' "$ENV_FILE") variables from .env"
+else
+    echo "[WARNING] .env file not found at $ENV_FILE"
+    echo "[INFO] Using default credentials (minioadmin/minioadmin)"
+    export MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-minioadmin}"
+    export MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-minioadmin}"
+fi
+
 # Usage information
 usage() {
     echo "Usage: $0 <ttyUSBx> [MINIO_ACCESS_KEY] [MINIO_SECRET_KEY]"
     echo "Example: $0 /dev/ttyUSB0"
     echo "Example: $0 /dev/ttyUSB0 your-access-key your-secret-key"
+    echo "[INFO] Credentials are loaded from .env file by default"
     exit 1
 }
 
@@ -18,9 +37,9 @@ fi
 
 # Set variables
 PORT=$1
-MINIO_ACCESS_KEY=${2:-"minioadmin"}
-MINIO_SECRET_KEY=${3:-"minioadmin"}
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Allow command line arguments to override .env values (for backwards compatibility)
+MINIO_ACCESS_KEY=${2:-$MINIO_ACCESS_KEY}
+MINIO_SECRET_KEY=${3:-$MINIO_SECRET_KEY}
 CATCH_SCRIPT="$SCRIPT_DIR/esp32_catch/catch_logs_auto.sh"
 
 # Export MinIO credentials for subprocesses

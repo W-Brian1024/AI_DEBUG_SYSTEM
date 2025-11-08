@@ -2,13 +2,28 @@
 set -e
 
 # ============================
-# Default configuration (can be overridden by arguments)
+# Load configuration from .env file
 # ============================
-# First argument: MINIO_ACCESS_KEY, default "minioadmin"
-MINIO_ACCESS_KEY=${1:-minioadmin}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.env"
 
-# Second argument: MINIO_SECRET_KEY, default "minioadmin"
-MINIO_SECRET_KEY=${2:-minioadmin}
+if [ -f "$ENV_FILE" ]; then
+    echo "[INFO] Loading credentials from $ENV_FILE"
+    # Export all variables from .env file
+    set -a
+    source "$ENV_FILE"
+    set +a
+    echo "[INFO] Loaded $(grep -c '^[^#]' "$ENV_FILE") variables from .env"
+else
+    echo "[WARNING] .env file not found at $ENV_FILE"
+    echo "[INFO] Using default credentials (minioadmin/minioadmin)"
+    export MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-minioadmin}"
+    export MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-minioadmin}"
+fi
+
+# Allow command line arguments to override .env values (for backwards compatibility)
+MINIO_ACCESS_KEY=${1:-$MINIO_ACCESS_KEY}
+MINIO_SECRET_KEY=${2:-$MINIO_SECRET_KEY}
 
 CONTAINER_NAME=minio
 DATA_DIR=$HOME/minio-data

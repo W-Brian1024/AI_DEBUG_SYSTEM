@@ -1,0 +1,106 @@
+# ESP32 AI Debug System Configuration
+# ===================================
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  cors_origins: ["*"]
+
+# Redis Configuration
+redis:
+  host: "localhost"
+  port: 6379
+  db_broker: 0
+  db_backend: 1
+  db_cache: 2
+  password: null
+  max_connections: 10
+
+# MinIO Configuration
+minio:
+  endpoint: "localhost:9000"
+  secure: false
+  bucket: "ble1"
+  access_key: "${MINIO_ACCESS_KEY:minioadmin}"
+  secret_key: "${MINIO_SECRET_KEY:minioadmin}"
+
+# AI Service Configuration (Optimized for speed)
+ai:
+  provider: "zhipu"  # zhipu, openai, deepseek
+  model: "glm-4.5"
+  api_key: "${ZHIPU_API_KEY}"
+  timeout: 15        # Reduced from 30 for faster response
+  max_retries: 2     # Reduced from 3 for faster failure detection
+  cache_ttl: 86400  # 24 hours
+
+# ESP32 Communication
+esp32:
+  default_baud_rate: 115200
+  timeout_no_log: 20
+  virtual_serial_dir: "~/vserial"
+  virtual_serial_path: "~/vserial/ttyVLOG"
+  log_directory: "./logs"
+  max_log_file_size: "100MB"
+
+# Processing Configuration (Optimized for speed)
+processing:
+  # Chunking strategy based on file size (smaller chunks = faster parallel processing)
+  chunk_size:
+    very_large: 50     # >2000 lines - reduced from 100
+    large: 40          # 1000-2000 lines - reduced from 75
+    medium: 30        # 500-1000 lines - reduced from 50
+    small: 20         # 200-500 lines - reduced from 25
+    very_small: 10    # <200 lines - reduced from 15
+
+  # Worker scaling (more workers = faster processing)
+  max_workers:
+    very_large: 16    # Increased from 12
+    large: 14        # Increased from 10
+    medium: 12       # Increased from 8
+    small: 8         # Increased from 6
+    very_small: 6    # Increased from 4
+
+# Cache Configuration
+cache:
+  llm_cache_ttl: 86400      # 24 hours
+  chunk_cache_ttl: 43200    # 12 hours
+  result_cache_ttl: 3600    # 1 hour
+  max_history_size: 200
+
+# Analysis Configuration
+analysis:
+  confidence_threshold: 0.3
+  enable_parallel_processing: true
+  enable_caching: true
+  enable_performance_monitoring: true
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/app.log"
+  max_size: "10MB"
+  backup_count: 5
+
+# Security Configuration
+security:
+  enable_auth: false
+  max_file_size: "50MB"
+  allowed_file_types: [".log", ".txt", ".bin"]
+  rate_limit_per_minute: 60
+
+# Monitoring Configuration
+monitoring:
+  enable_health_check: true
+  health_check_interval: 30
+  metrics_enabled: true
+  performance_tracking: true
+
+# Development Configuration
+development:
+  auto_reload: true
+  mock_ai_responses: false
+  enable_debug_endpoints: true
+  test_mode: false

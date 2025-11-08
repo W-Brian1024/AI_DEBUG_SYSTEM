@@ -7,82 +7,74 @@ An intelligent ESP32 log analysis system powered by AI that automatically captur
 ### Prerequisites
 
 - Python 3.8+
-- Docker & Docker Compose
+- Docker
 - ESP-IDF (for ESP32 development)
-- Redis
-- MinIO (S3-compatible object storage)
+- ZhiPu AI API Key
 
 ### 1. Environment Setup
 
 #### Clone the Repository
 ```bash
 git clone <repository-url>
+cd AI_DEBUG_SYSTEM
 ```
 
 #### Python Virtual Environment
 ```bash
-cd fastapi
-python3 -m venv fast_venv
-source fast_venv/bin/activate  # On Windows: fast_venv\Scripts\activate
+# Use existing virtual environment or create new one
+source ai_env/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-#### MinIO Setup
+#### Configuration Setup
 ```bash
-# Option 1: Using Docker (Recommended)
-docker run -d \
-  --name minio \
-  -p 9000:9000 -p 9001:9001 \
-  --restart unless-stopped \
-  -v $(pwd)/minio-data:/data \
-  -e "MINIO_ROOT_USER=minioadmin" \
-  -e "MINIO_ROOT_PASSWORD=minioadmin" \
-  minio/minio server /data --console-address ":9001"
+# Copy environment template
+cp .env.example .env
 
-# Option 2: Local Installation
-# Download and install MinIO from https://min.io/download
+# Edit .env file with your credentials
+nano .env
 ```
 
-#### Redis Setup
+Add your credentials to `.env`:
 ```bash
-# Using Docker
-docker run -d --name redis -p 6379:6379 redis:alpine
+# MinIO Configuration
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
 
-# Or install locally
-sudo apt-get install redis-server  # Ubuntu/Debian
-brew install redis  # macOS
+# AI Service Configuration (Required!)
+ZHIPU_API_KEY=your-zhipu-api-key-here
 ```
 
-### 2. Configuration
-
-#### MinIO Credentials
-Create a MinIO bucket and get your access keys:
-1. Open http://localhost:9001
-2. Login with `minioadmin` / `minioadmin`
-3. Create a bucket named `ble1`
-4. Generate access keys in Users section
-
-#### Environment Variables
+#### Check Configuration
 ```bash
-# Create .env file
-cat > .env << EOF
-MINIO_ACCESS_KEY=your-access-key-here
-MINIO_SECRET_KEY=your-secret-key-here
-DEEPSEEK_API_KEY=your-deepseek-api-key-here
-EOF
-
-# Or set in shell
-export MINIO_ACCESS_KEY="your-access-key"
-export MINIO_SECRET_KEY="your-secret-key"
-export DEEPSEEK_API_KEY="your-deepseek-api-key"
+# Validate all configuration
+python3 check_config.py
 ```
 
-### 3. Start Services
+### 2. Service Setup
 
-#### Using the Startup Script (Recommended)
+#### Start MinIO (Object Storage)
+```bash
+./setup_docker.sh
+```
+
+#### Start Redis (if not using Docker setup_docker.sh)
+```bash
+# Option 1: Using Docker
+sudo docker run -d --name redis -p 6379:6379 redis:alpine --restart unless-stopped
+
+# Option 2: System package
+sudo apt install redis-server
+sudo systemctl start redis
+```
+
+### 3. Start the Application
+
+#### Automated Startup (Recommended)
 ```bash
 cd fastapi
-chmod +x start_fastapi.sh
 ./start_fastapi.sh
 ```
 
@@ -93,12 +85,12 @@ redis-server
 
 # Terminal 2: Start Celery Worker
 cd fastapi
-source fast_venv/bin/activate
+source ai_env/bin/activate
 celery -A celery_app worker --loglevel=info
 
 # Terminal 3: Start FastAPI
 cd fastapi
-source fast_venv/bin/activate
+source ai_env/bin/activate
 python -m uvicorn fastapi_app:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -110,13 +102,22 @@ Open http://localhost:8000 in your browser to access the web interface.
 
 ### ESP32 Log Capture
 
-#### Method 1: One-Click Flash & Capture (Recommended)
+#### One-Click Flash & Capture (Recommended)
 ```bash
-# Basic usage (default MinIO credentials)
+# Basic usage
 ./flash_auto.sh /dev/ttyUSB0
 
-# With custom MinIO credentials
-./flash_auto.sh /dev/ttyUSB0 your-access-key your-secret-key
+# The script now automatically loads credentials from .env file
+```
+
+#### Manual Log Capture
+```bash
+# 1. Flash ESP32
+idf.py flash -p /dev/ttyUSB0
+
+# 2. Start log capture
+cd esp32_catch
+python3 catch_esp_log.py
 ```
 
 ### Web Interface Usage
@@ -165,7 +166,7 @@ Object Storage (MinIO)
 Celery Workers + Redis Queue
     │
     ▼
-LLM Analysis Engine (DeepSeek)
+LLM Analysis Engine (ZhiPu AI)
     │
     ▼
 Web Interface + API
@@ -174,89 +175,111 @@ Web Interface + API
 ## 📁 Project Structure
 
 ```
-esp_ai_debug/
+AI_DEBUG_SYSTEM/
 ├── fastapi/                    # Backend services
 │   ├── fastapi_app.py         # FastAPI main application
 │   ├── celery_app.py          # Celery background tasks
 │   ├── start_fastapi.sh       # Service startup script
 │   └── requirements.txt       # Python dependencies
-├── catch_esp_log.py           # ESP32 log capture script
-├── catch_logs_auto.sh         # Automated log capture
+├── esp32_catch/               # ESP32 log capture
+│   ├── catch_esp_log.py       # Serial log monitoring
+│   └── logs/                  # Local log storage
+├── config.yaml                # Central configuration file
+├── .env.example               # Environment variables template
+├── check_config.py            # Configuration validation tool
+├── setup_docker.sh            # MinIO container setup
 ├── flash_auto.sh              # Flash + capture script
-├── log_monitor.py             # Directory monitoring
-├── logs/                      # Local log storage
 └── README.md                  # This file
 ```
 
-## ⚙️ Configuration Options
+## ⚙️ Configuration
 
-### MinIO Configuration
-Edit `fastapi_app.py` and `celery_app.py`:
-```python
-minio_client = Minio(
-    endpoint="localhost:9000",
-    access_key=os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
-    secret_key=os.getenv("MINIO_SECRET_KEY", "minioadmin"),
-    secure=False
-)
+### Central Configuration (`config.yaml`)
+All system settings are managed through `config.yaml` with environment variable substitution:
+
+```yaml
+# Server settings
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+# AI Service settings
+ai:
+  provider: "zhipu"
+  model: "glm-4.5"
+  api_key: "${ZHIPU_API_KEY}"
+
+# MinIO settings
+minio:
+  endpoint: "localhost:9000"
+  access_key: "${MINIO_ACCESS_KEY:minioadmin}"
+  secret_key: "${MINIO_SECRET_KEY:minioadmin}"
 ```
 
-### API Keys
-Set your DeepSeek API key:
+### Environment Variables (`.env`)
+Create `.env` file from `.env.example`:
 ```bash
-export DEEPSEEK_API_KEY="your-api-key"
-```
+# MinIO Configuration
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
 
-### Log File Paths
-- **Relative paths** are used for portability
-- Default log directory: `./logs`
-- Default virtual serial: `/tmp/ttyVLOG`
+# AI Service Configuration (Required!)
+ZHIPU_API_KEY=your-zhipu-api-key-here
+```
 
 ## 🔧 Troubleshooting
 
 ### Common Issues
 
-#### 1. MinIO Connection Failed
+#### 1. Configuration Validation Failed
 ```bash
-# Check MinIO status
-docker ps | grep minio
+# Check configuration
+python3 check_config.py
 
-# Restart MinIO
-docker restart minio
-
-# Check credentials
-curl -X GET "http://localhost:9000/minio/health/live"
+# Fix issues based on output
 ```
 
-#### 2. Celery Worker Not Starting
+#### 2. MinIO Connection Issues
 ```bash
-# Check Redis
+# Check MinIO container
+sudo docker ps | grep minio
+
+# Restart MinIO if needed
+sudo docker restart minio
+
+# Recreate MinIO with correct credentials
+sudo docker stop minio && sudo docker rm minio
+./setup_docker.sh
+```
+
+#### 3. Redis Connection Issues
+```bash
+# Check Redis status
 redis-cli ping
 
-# Restart services
-./start_fastapi.sh
+# Start Redis if not running
+sudo docker start redis  # if using Docker
+# or
+sudo systemctl start redis  # if using system package
 ```
 
-#### 3. Virtual Serial Port Issues
+#### 4. Missing Dependencies
+```bash
+# Install missing system dependencies
+sudo apt install socat redis-server
+
+# Install Python dependencies
+source ai_env/bin/activate
+pip install -r requirements.txt
+```
+
+#### 5. Virtual Serial Port Issues
 ```bash
 # Check permissions
 ls -la /tmp/ttyVLOG
 
-# Create virtual serial port
+# Create virtual serial port if needed
 sudo socat -d -d /dev/ttyUSB0,raw,echo=0,b115200 PTY,link=/tmp/ttyVLOG,raw,echo=0,b115200 &
-```
-
-#### 4. Port Conflicts
-```bash
-# Check port usage
-netstat -tulpn | grep :8000
-netstat -tulpn | grep :6379
-netstat -tulpn | grep :9000
-
-# Kill processes on ports
-sudo fuser -k 8000/tcp
-sudo fuser -k 6379/tcp
-sudo fuser -k 9000/tcp
 ```
 
 ### Debug Mode
@@ -270,9 +293,79 @@ python -m uvicorn fastapi_app:app --reload --host 0.0.0.0 --port 8000 --log-leve
 celery -A celery_app worker --loglevel=debug
 ```
 
+### Health Checks
+
+```bash
+# Check FastAPI health
+curl http://localhost:8000/health
+
+# Check configuration
+python3 check_config.py
+
+# Check service status
+docker ps | grep -E "(minio|redis)"
+```
+
+## 🔄 Development
+
+### Configuration Changes
+1. Edit `config.yaml` for system settings
+2. Edit `.env` for sensitive credentials
+3. Run `python3 check_config.py` to validate
+
+### Adding New Features
+1. Update `config.yaml` for new configuration options
+2. Use `ConfigManager` in Python code:
+   ```python
+   from config_manager import get_config
+   config = get_config()
+   setting = config.get('section.key', 'default_value')
+   ```
+
+### Testing
+```bash
+# Run configuration validation
+python3 check_config.py
+
+# Test individual components
+python3 -c "from config_manager import get_config; print(get_config().get_all_config())"
+```
+
+## 📊 Features
+
+- **AI-Powered Analysis**: Intelligent log analysis using ZhiPu AI
+- **Real-time Processing**: Live log capture and analysis
+- **Interactive Q&A**: Ask questions about your logs
+- **Web Interface**: User-friendly web dashboard
+- **Parallel Processing**: Optimized for large log files
+- **Caching System**: Intelligent result caching
+- **Configuration Management**: Centralized YAML-based configuration
+
+## 🔒 Security Notes
+
+- Never commit `.env` files with real credentials
+- Use different API keys for development and production
+- Regularly rotate your API keys
+- Monitor system logs for unusual activity
+
+## 📝 License
+
+This project is licensed under the LICENSE file in the repository.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Update documentation
+5. Submit a pull request
+
+## 📞 Support
+
 For issues and questions:
+- Check the troubleshooting section above
+- Run `python3 check_config.py` for configuration validation
 - Create an issue on GitHub
-- Check the troubleshooting section
 - Review the system architecture documentation
 
 ---

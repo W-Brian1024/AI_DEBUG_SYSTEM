@@ -1,19 +1,32 @@
 import serial
 import time
 import os
+import sys
 from datetime import datetime
 import requests
 
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import configuration management
+from check_config.config_manager import get_config
+
+# Initialize configuration
+config_manager = get_config()
+esp32_config = config_manager.get_esp32_config()
+server_config = config_manager.get_server_config()
+
 # Get script directory and log directory
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Use script-local logs directory, ignore config setting to avoid confusion
 LOG_DIR = os.path.join(SCRIPT_DIR, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Virtual serial port and baud rate
-SERIAL_PORT = os.environ.get("VIRTUAL_SERIAL", "/tmp/ttyVLOG")
-BAUD_RATE = 115200
-TIMEOUT_NO_LOG = 20  # seconds
-FASTAPI_URL = "http://localhost:8000/upload/"  # FastAPI URL
+# Virtual serial port and baud rate from configuration
+SERIAL_PORT = os.environ.get("VIRTUAL_SERIAL", esp32_config.get('virtual_serial_path', '/tmp/ttyVLOG'))
+BAUD_RATE = esp32_config.get('default_baud_rate', 115200)
+TIMEOUT_NO_LOG = esp32_config.get('timeout_no_log', 20)  # seconds
+FASTAPI_URL = f"http://{server_config.get('host', 'localhost')}:{server_config.get('port', 8000)}/upload/"
 
 # Used to save last read file pointer position, avoid duplicate uploads
 last_pos = 0
