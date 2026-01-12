@@ -5,20 +5,29 @@ set -e
 # Load configuration from .env file
 # ============================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/.env"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-if [ -f "$ENV_FILE" ]; then
+# Try root .env first, fallback to docker/.env
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    ENV_FILE="$PROJECT_ROOT/.env"
     echo "[INFO] Loading credentials from $ENV_FILE"
+elif [ -f "$SCRIPT_DIR/.env" ]; then
+    ENV_FILE="$SCRIPT_DIR/.env"
+    echo "[INFO] Loading credentials from $ENV_FILE"
+else
+    ENV_FILE=""
+    echo "[WARNING] .env file not found at $PROJECT_ROOT/.env or $SCRIPT_DIR/.env"
+    echo "[INFO] Using default credentials (minioadmin/minioadmin)"
+    export MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-minioadmin}"
+    export MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-minioadmin}"
+fi
+
+if [ -n "$ENV_FILE" ]; then
     # Export all variables from .env file
     set -a
     source "$ENV_FILE"
     set +a
     echo "[INFO] Loaded $(grep -c '^[^#]' "$ENV_FILE") variables from .env"
-else
-    echo "[WARNING] .env file not found at $ENV_FILE"
-    echo "[INFO] Using default credentials (minioadmin/minioadmin)"
-    export MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-minioadmin}"
-    export MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-minioadmin}"
 fi
 
 # Allow command line arguments to override .env values (for backwards compatibility)
@@ -81,25 +90,38 @@ fi
 mkdir -p $DATA_DIR
 
 # ============================
+# Check Docker command availability
+# ============================
+DOCKER_CMD="docker"
+if ! docker ps >/dev/null 2>&1; then
+    if sudo docker ps >/dev/null 2>&1; then
+        DOCKER_CMD="sudo docker"
+    else
+        echo "ERROR: Cannot access Docker. Please check Docker installation or permissions."
+        exit 1
+    fi
+fi
+
+# ============================
 # Pull MinIO image
 # ============================
 echo "Pulling MinIO image..."
-docker pull minio/minio:latest
+$DOCKER_CMD pull minio/minio:latest
 
 # ============================
 # Stop and remove existing container if exists
 # ============================
-if docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
+if $DOCKER_CMD ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
     echo "Stopping and removing existing container $CONTAINER_NAME..."
-    docker stop $CONTAINER_NAME
-    docker rm $CONTAINER_NAME
+    $DOCKER_CMD stop $CONTAINER_NAME
+    $DOCKER_CMD rm $CONTAINER_NAME
 fi
 
 # ============================
 # Run MinIO container
 # ============================
 echo "Creating and starting MinIO container..."
-docker run -d \
+$DOCKER_CMD run -d \
   --name $CONTAINER_NAME \
   -p ${MINIO_PORT}:9000 \
   -p ${MINIO_CONSOLE_PORT}:9001 \

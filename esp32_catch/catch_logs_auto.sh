@@ -57,6 +57,17 @@ check_dependencies
 PHYSICAL_SERIAL="$1"                  # ESP32 serial port passed from parameter
 BAUD_RATE="${2:-115200}"              # Optional parameter, default 115200
 
+# === Flash ESP32 ===
+echo "🔥 Flashing ESP32 on $PHYSICAL_SERIAL..."
+idf.py flash -p $PHYSICAL_SERIAL
+if [ $? -eq 0 ]; then
+    echo "✅ Flash completed successfully!"
+else
+    echo "❌ Flash failed! Exiting."
+    exit 1
+fi
+echo ""
+
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

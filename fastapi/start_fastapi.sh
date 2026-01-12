@@ -29,31 +29,37 @@ export MINIO_SECRET_KEY
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Try to find virtual environment in multiple locations
-VENV_DIRS=("$SCRIPT_DIR/fast_venv" "$SCRIPT_DIR/../ai_env" "$HOME/ai_env")
-
-VENV_DIR=""
-for dir in "${VENV_DIRS[@]}"; do
-    if [ -d "$dir" ]; then
-        VENV_DIR="$dir"
-        break
-    fi
-done
-
-# Activate virtual environment
-if [ -n "$VENV_DIR" ]; then
-    echo "[INFO] Activating virtual environment: $VENV_DIR"
-    source "$VENV_DIR/bin/activate"
+# Check if already in a virtual environment
+if [ -n "$VIRTUAL_ENV" ]; then
+    echo "[INFO] Using existing virtual environment: $VIRTUAL_ENV"
+    VENV_DIR="$VIRTUAL_ENV"
 else
-    echo "[ERROR] No virtual environment found in:"
+    # Try to find virtual environment in multiple locations
+    VENV_DIRS=("$SCRIPT_DIR/fast_venv" "$SCRIPT_DIR/../ai_env" "$HOME/ai_env" "$SCRIPT_DIR/../debug_venv")
+
+    VENV_DIR=""
     for dir in "${VENV_DIRS[@]}"; do
-        echo "  - $dir"
+        if [ -d "$dir" ]; then
+            VENV_DIR="$dir"
+            break
+        fi
     done
-    echo "[INFO] Please create a virtual environment first:"
-    echo "  cd $SCRIPT_DIR/.. && python3 -m venv ai_env"
-    echo "  source ai_env/bin/activate"
-    echo "  pip install -r requirements.txt"
-    exit 1
+
+    # Activate virtual environment
+    if [ -n "$VENV_DIR" ]; then
+        echo "[INFO] Activating virtual environment: $VENV_DIR"
+        source "$VENV_DIR/bin/activate"
+    else
+        echo "[ERROR] No virtual environment found in:"
+        for dir in "${VENV_DIRS[@]}"; do
+            echo "  - $dir"
+        done
+        echo "[INFO] Please create a virtual environment first:"
+        echo "  cd $SCRIPT_DIR/.. && python3 -m venv ai_env"
+        echo "  source ai_env/bin/activate"
+        echo "  pip install -r requirements.txt"
+        exit 1
+    fi
 fi
 
 # Clear proxy settings to avoid SOCKS proxy conflicts
